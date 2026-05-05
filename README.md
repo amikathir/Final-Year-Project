@@ -2,13 +2,13 @@
 
 A Fourier-feature, first-order Physics-Informed Neural Network for **1D
 transcranial ultrasound wave propagation**, supervised by a conservative
-FDTD reference solver. Produces a continuous, differentiable surrogate of
-the displacement wavefield through a five-layer head model
-(scalp - skull - brain - skull - scalp) at a 500 kHz carrier.
+Finite-Difference Time-Domain reference solver. This produces a continuous, 
+differentiable surrogate of the displacement wavefield through a five-layer 
+head model (scalp - skull - brain - skull - scalp) at a 500 kHz carrier.
 
 > *This is the BMED4010 Final Year Project of Amaresh Kathiresan
-> (HKU EEE, 2025/26), supervised by A/Prof. Wei-Ning Lee, co-supervised by
-> Dr Rachel Kwan, with technical mentorship from Dr Haotian Guan.*
+> (HKU BME, 2025/26), supervised by Associate Professor Wei-Ning Lee,
+> co-supervised by Dr Rachel Kwan, with technical mentorship from Mr Haotian Guan.*
 
 ---
 
@@ -34,8 +34,7 @@ End-to-end pipeline:
                     ▼
     pinn_transcranial_hybrid_normal.pt       ← trained checkpoint
                     │
-                    ├── generate_video.py            → wavefield_video.mp4
-                    └── generate_report_figures.py   → report_figures/*.png
+                    └── generate_video.py            → wavefield_video.mp4
 ```
 
 The PINN learns three coupled fields `(u, q, g)` — displacement, particle
@@ -54,19 +53,12 @@ okada_pinn/
 ├── preprocess_fdtd_data.py                ← FDTD → (u, q, g) normalised tiles
 ├── main_transcranial.py                   ← training entry point
 ├── generate_video.py                      ← wavefield animation from .pt
-├── generate_report_figures.py             ← all FYP report figures
-│
 └── lib_transcranial/
     ├── physics.py                         ← TranscranialHybridPhysics + tissue layers
     ├── network_transcranial.py            ← FourierFeatureEmbedding + FourierMLP
     ├── pinn_transcranial.py               ← FirstOrderHybridPINN model wrapper
     └── optimiser_transcranial.py          ← HybridTrainer + StageConfig + L-BFGS polish
 ```
-
-Other top-level scripts (`main_2d_fat.py`, `main_fourier.py`, `cranial.py`, ...)
-belong to earlier prototypes and are NOT part of the production transcranial
-pipeline. The four files in `lib_transcranial/` plus the five top-level
-scripts above are everything you need.
 
 ---
 
@@ -78,14 +70,13 @@ scripts above are everything you need.
 - **NumPy**, **SciPy**, **Matplotlib**
 - **ffmpeg** (`generate_video.py` falls back to GIF via Pillow if ffmpeg
   is missing)
-- **GPU**: tested on an RTX 5070 (12 GB). Training fits in ~3 GB VRAM;
+- **GPU**: tested on an NVIDIA RTX 5070 (12 GB). Training fits in around 3 GB VRAM;
   any modern GPU will work.
 
 Install with:
-
 ```bash
 python -m venv .venv
-source .venv/bin/activate         # Linux / WSL
+source .venv/bin/activate         # Linux / WS
 # or  .venv\Scripts\activate      # Windows PowerShell
 
 pip install --upgrade pip
@@ -99,20 +90,17 @@ pip install torch numpy scipy matplotlib pillow
 From a fresh checkout:
 
 ```bash
-# 1. Generate the FDTD reference (~8 s on CPU)
+Begin by running python main_transcranial.py then the following occurs:
+# 1. Generate the FDTD reference (around 8 s on CPU)
 python FDTD_1D_transcranial_500kHz.py
 
-# 2. Preprocess FDTD into normalised training tensors (~5 s)
+# 2. Preprocess FDTD into normalised training tensors (around 5 s)
 python preprocess_fdtd_data.py
 
-# 3. Train the PINN (~45 min on RTX 5070)
-python main_transcranial.py
+# 3. Train the PINN (around 45 min on RTX 5070)
 
-# 4. Animate the trained model (~30 s)
+# 4. Animate the trained model (around 30 s)
 python generate_video.py
-
-# 5. Regenerate the report figures (~1 min)
-python generate_report_figures.py
 ```
 
 Expected output after step 3:
@@ -128,15 +116,12 @@ Expected output after step 3:
 ```
 
 Headline metrics:
-- Global relative L² error: **~7 %**
+- Global relative L² error: **around 7 %**
 - Probe trace correlations: **0.98 - 0.997**
-- Wall-clock training time: **~45 min** on RTX 5070
-
+- Wall-clock training time: **around 45 min** on NVIDIA RTX 5070
 ---
 
 ## Configuration
-
-The most-edited knobs:
 
 | Parameter | File | Line | Default | Effect |
 |---|---|---|---|---|
@@ -149,14 +134,6 @@ The most-edited knobs:
 | Hidden layers / width | `lib_transcranial/network_transcranial.py` | 86-87 | 5 / 256 | MLP capacity |
 | Stage 1 LR | `main_transcranial.py` | 418 | 5 × 10⁻⁴ | Adam supervised warm-up |
 | Stage 2 PDE weight | `main_transcranial.py` | 429 | 0.005 | Physics regularisation strength |
-
-To change the geometry to the older 73.2 mm configuration that matches the
-report's slide 5:
-
-```python
-# lib_transcranial/physics.py line 44
-brain_thickness_m: float = 46.8e-3,    # was 66.8
-```
 
 CLI arguments are listed in `python main_transcranial.py --help`.
 
@@ -174,7 +151,6 @@ After a full run the project root contains:
 | `pinn_training_traces_normalized.npz` | preprocessor | Probe time series at x = 1, 3.2, 13.2, 40, 70 mm |
 | `pinn_transcranial_hybrid_normal.pt` | training | Model weights + `physics_config` + `network_config` + scales |
 | `wavefield_video.mp4` | `generate_video.py` | Animated wavefield (FuncAnimation, 30 fps) |
-| `report_figures/*.png` | `generate_report_figures.py` | All figures referenced by the FYP report |
 
 ---
 
@@ -192,7 +168,8 @@ three Adam stages followed by an L-BFGS polish.
 
 See `pinn_transcranial.py` for the (u, q, g) wrapper and
 `network_transcranial.py` for the embedding/MLP. Stage configurations
-live in `main_transcranial.py:build_stages_normal()`.
+live in `main_transcranial.py:build_stages_normal().`
+
 ---
 
 ## Training stages (normal mode)
@@ -223,7 +200,7 @@ causal collapse is the failure mode.
 | Frequency-independent attenuation around carrier | physics | Future work — Szabo power-law |
 | Per-configuration training (not an operator) | architecture | Future work — DeepONet extension |
 
-See the report's *Limitations* section for fuller discussion.
+See the report's *Limitations* section for further discussion.
 
 ---
 
@@ -233,7 +210,7 @@ See the report's *Limitations* section for fuller discussion.
 # Train with the alternative early-time curriculum
 python main_transcranial.py --mode early_time --snapshot-spacing-us 3.0
 
-# Train at a different carrier frequency
+# Train at a different carrier frequency with kHz units
 python main_transcranial.py --frequency 250
 
 # Generate a GIF instead of MP4 (no ffmpeg needed)
@@ -326,7 +303,7 @@ at https://github.com/okada39/pinn_wave.
 
 ## License
 
-MIT (or as governed by the HKU EEE department's project release policy).
+MIT
 
 ---
 
